@@ -1,62 +1,78 @@
 import cv2
 import numpy as np
 import torch
-from pynput.keyboard import Controller
 from CNNModel import CNNModel  # Verwijs naar je modelbestand of plaats dit in hetzelfde script
 import mss
 import time
+import keyboard
+
+
 
 # Model laden
 model = CNNModel()
 model.load_state_dict(torch.load('trackmania_model.pth'))
 model.eval()  # Zet model in evaluatiemodus
 
-keyboard = Controller()
-
 IMG_HEIGHT, IMG_WIDTH = 100, 100
 
-# Functie om een toets in te drukken
-def press_key(key):
-    keyboard.press(key)
-    keyboard.release(key)
 
-# Functie om de auto te besturen
+# Functie om screenshots te nemen en te gebruiken voor het model
 def drive():
     with mss.mss() as sct:
         monitor = sct.monitors[1]  # Scherm dat je wilt capturen (je kunt dit aanpassen)
 
         while True:
-            # Neem een screenshot
+            # Screenshot nemen
             screenshot = np.array(sct.grab(monitor))
 
-            # Converteer BGRA naar BGR
-            frame_bgr = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+            # Converteer de afbeelding van BGRA naar BGR (voor OpenCV)
+            img_bgr = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
 
-            frame_resized = torch.tensor(frame_bgr, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0) / 255.0  # PyTorch input
+            # Verklein de afbeelding naar 100x100 pixels (zelfde als tijdens training)
+            img_resized = cv2.resize(img_bgr, (IMG_WIDTH, IMG_HEIGHT))
 
-            # Voorspelling maken
+            # Converteer de afbeelding naar een tensor voor het model
+            img_tensor = torch.tensor(img_resized, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0) / 255.0  # PyTorch input
+
+            # Maak een voorspelling
             with torch.no_grad():
-                output = model(frame_resized)
+                output = model(img_tensor)
                 predicted_class = torch.argmax(output, dim=1).item()
 
-            # Bestuur de auto
+            # Print de voorspelling naar de console
+            print(f"Predicted class: {predicted_class}")
+
+            # Voeg de voorspelling toe aan het frame
+            cv2.putText(img_bgr, f'Predicted: {predicted_class}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+
+            # Bestuur de auto op basis van voorspelling
             if predicted_class == 0:
-                press_key('z')  # Rechtdoor
+                keyboard.press("z")
+                keyboard.release("q")
+                keyboard.release("d")
+                keyboard.release("s")
             elif predicted_class == 1:
-                press_key('q')  # Links
+                keyboard.press("q")
+                keyboard.release("z")
+                keyboard.release("d")
+                keyboard.release("s")
             elif predicted_class == 2:
-                press_key('d')  # Rechts
+                keyboard.press("d")
+                keyboard.release("q")
+                keyboard.release("z")
+                keyboard.release("s")
+            elif predicted_class == 3:
+                keyboard.press("s")
+                keyboard.release("q")
+                keyboard.release("z")
+                keyboard.release("d")
+            time.sleep(0.2)  # Vertraging om de toetsaanslag te registreren
 
-            # Optioneel: Toon het huidige frame
-            cv2.imshow('Trackmania', frame_bgr)
+            
 
-            # Wacht 0.3 seconde voordat je de volgende screenshot neemt
-            time.sleep(0.6)
-
-            # Stoppen als 'q' wordt ingedrukt
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            
 
     cv2.destroyAllWindows()
 
+# Start de drive functie
 drive()

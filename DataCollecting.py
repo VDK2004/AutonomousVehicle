@@ -4,6 +4,7 @@ import os
 import mss
 from pynput import keyboard
 from datetime import datetime
+import time
 
 # Directory om data op te slaan
 data_dir = "trackmania_data"
@@ -11,7 +12,7 @@ if not os.path.exists(data_dir):
     os.makedirs(data_dir)
 
 # Maak mappen aan voor labels
-for label in ['0', '1', '2']:  # 0: rechtdoor (z), 1: links (q), 2: rechts (d)
+for label in ['0', '1', '2','3']:  # 0: rechtdoor (z), 1: links (q), 2: rechts (d)
     label_dir = os.path.join(data_dir, label)
     if not os.path.exists(label_dir):
         os.makedirs(label_dir)
@@ -29,6 +30,8 @@ def on_press(key):
             key_pressed = '1'  # Links
         elif key.char == 'd':
             key_pressed = '2'  # Rechts
+        elif key.char == 's':
+            key_pressed = '3'  # achteruit
     except AttributeError:
         pass
 
@@ -71,6 +74,7 @@ def collect_data():
                     cv2.imwrite(img_path, img_bgr)
                     
                     print(f"Screenshot saved at {img_path}")
+                    time.sleep(0.2)
 
 # Start data verzamelen
 collect_data()
